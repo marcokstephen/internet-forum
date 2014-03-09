@@ -1,7 +1,8 @@
 internet-forum
 ==============
 
-Created an internet message board with PHP and MySQL
+Created an internet message board with PHP and MySQL <br />
+<a href="http://www.stephenmarcok.com/boards">You can view it in action here</a>
 
 You must add your own database credentials to connect.php
 
@@ -24,5 +25,18 @@ The code uses a headers and footers. If you change header.php, the header will c
 * login.php
 * register.php
 To change the header of these pages, change header2.php.
+<br />The reason for this is that header.php contains a navbar which is not relevant to these four pages.
 
-The reason for this is that header.php contains a navbar which is not relevant to these four pages.
+GENERAL FEATURES:
+* User level system 
+* Major exploits have been patched (regarding HTTP post/get manipulation)
+* HTML-within-posts has been removed to prevent exploits, excluding two tags which you can find in the help menu
+* User list has been added to the help page, updates automatically
+* Topics are listed by most-recently-active order
+* Users have unique pages showing their board account information
+
+ADMINISTRATIVE FEATURES:
+* Moderation system implemented to delete users' posts and topics
+* Boards can be created/modified/deleted without needing to access the database
+* Users can be modified without needing to access the database
+* Users that are banned will be banned immediately, they will not need to log out to be banned
