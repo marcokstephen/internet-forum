@@ -19,13 +19,13 @@ Likewise, the code assumes that a moderator account will have a level > 2. If yo
 * delete-topic.php
 * posts.php
 
-The code uses a headers and footers. If you change header.php, the header will change on all pages except for the following 4:
+The code uses headers and footers. If you change header.php, the header will change on all pages except for the following 4:
 * confirm-login.php
 * confirm-registration.php
 * login.php
 * register.php
-To change the header of these pages, change header2.php.
-<br />The reason for this is that header.php contains a navbar which is not relevant to these four pages.
+
+To change the header of these pages, change header2.php. The reason for this is that header.php contains a navbar which is not relevant to these four pages. All pages can use the same footer.php
 
 GENERAL FEATURES:
 * User level system 
