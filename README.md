@@ -24,4 +24,5 @@ The code uses a headers and footers. If you change header.php, the header will c
 * login.php
 * register.php
 To change the header of these pages, change header2.php.
+
 The reason for this is that header.php contains a navbar which is not relevant to these four pages.
