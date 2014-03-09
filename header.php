@@ -9,11 +9,10 @@
 <!DOCTYPE html>
 
 <!-- Coded by: Stephen Marcok @ the University of Waterloo
-     Last Update: March 8, 2014
      http://www.stephenmarcok.com 
      **This forum is free for public use!**
      Want to create your own PHP message board?
-     View http://www.stephenmarcok.com/blog for the source code -->
+     View https://github.com/marcokstephen/internet-forum for the source code -->
      
      
 <html><head><title>Stephen's Message Boards</title>
