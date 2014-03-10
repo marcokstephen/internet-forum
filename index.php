@@ -40,9 +40,6 @@ if(!$result)
         $numberTopics = "SELECT COUNT(topic_id) FROM topics WHERE topic_board = " . $row['board_id'];
         $numTopics = mysql_query($numberTopics);
         $topicCount = mysql_fetch_assoc($numTopics);
-/*        $numberPosts = "SELECT COUNT(topic_id) FROM topics WHERE topic_board = " . $row['board_id'];
-        $numPosts = mysql_query($numberPosts);
-        $postCount = mysql_fetch_assoc($numPosts);*/
 		
 		//query to determine when the last post was that occurred on the specific board
 		$recentPost = "SELECT last_post FROM topics WHERE topic_board = '" . $row['board_id'] . "' ORDER BY last_post DESC LIMIT 1";
