@@ -33,9 +33,9 @@ if ($value2 != $value5){ //ensures that password matches the "confirm password" 
 //if you add in an activation method, you can create a user with the default
 //user level of 1, and then change them to 2 when they are successfully activated
 $sql = "INSERT INTO users(user_name, user_pass, user_email, user_date, user_level)
-	VALUES('" . strip_tags(mysql_real_escape_string($_POST['create-username'])) . "',
-		'" . sha1($_POST['create-password']) . "',
-		'" . strip_tags(mysql_real_escape_string($_POST['create-email'])) . "', NOW(), 2)";
+	VALUES('" . strip_tags($value) . "',
+		'" . sha1($value2) . "',
+		'" . strip_tags($value3) . "', NOW(), 2)";
 		
 $result = mysql_query($sql);
 
