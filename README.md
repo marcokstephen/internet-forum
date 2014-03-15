@@ -2,7 +2,8 @@ internet-forum
 ==============
 
 Created an internet message board with PHP and MySQL <br />
-<a href="http://www.stephenmarcok.com/boards">You can view it in action here</a>
+<a href="http://www.stephenmarcok.com/boards">You can view it in action here</a> <br />
+And you can <a href="http://www.stephenmarcok.com/blog/development/creating-your-own-forum-with-php-and-mysql/">view my tutorial here</a>
 
 You must add your own database credentials to connect.php
 
