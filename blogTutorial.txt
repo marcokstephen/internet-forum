@@ -1,0 +1,737 @@
+<h6>Last Update: March 15, 2013</h6>
+Hello,
+
+In this tutorial, I'll help you recreate <a href="http://www.stephenmarcok.com/boards/" target="_blank">this internet forum</a> that I have previously written, using MySQL and PHP. This tutorial will be structured slightly irregularly -- I am going to give you the source code for the forum upfront, and my hope is that by the end, you will understand what exactly is happening in the code, and be able to add your own features/take the forum in your own direction. You will notice that towards the end of the tutorial, the pacing will increase significantly, but that is because we will be using a lot of the same techniques multiple times. I will, however, ensure to explain everything at least once. I highly recommend looking at different pages on my example forum (linked above) to get a feel for what it is we will be working with.
+
+<i>(If you're not interested in learning about the backend stuff, you can download the source code, follow my walkthrough of setting up the MySQL database, and just have the forum work out of the box.) </i>
+
+This tutorial assumes that you have some knowledge of HTML and CSS, as well as a bit of programming experience. (If you have not yet learned those web development languages (HTML/CSS), I recommend going to <a href="http://www.w3schools.com">W3Schools</a> and working through some pages.)
+
+[caption id="attachment_27" align="alignnone" width="793"]<a href="http://www.stephenmarcok.com/blog/wp-content/uploads/2014/03/finishedproduct.png"><img class="size-full wp-image-27" alt="A snapshot of the finished index.php (on a very low res..)" src="http://www.stephenmarcok.com/blog/wp-content/uploads/2014/03/finishedproduct.png" width="793" height="473" /></a> A snapshot of the finished index.php (on a very low resolution)[/caption]
+
+Now, before we begin, you will need the following:
+<ul>
+	<li>A server that can execute PHP</li>
+	<li>A MySQL database</li>
+	<li>My forum source code, which you can find on <a href="https://github.com/marcokstephen/internet-forum">GitHub</a> or download from <a href="http://stephenmarcok.com/uploads/internet-forum.zip">my personal site</a>.</li>
+</ul>
+<h1>Creating the Tables</h1>
+If you are buying hosting from a company, it is likely that you already have all of these requirements. We will start by setting up the MySQL database. This database will store all of the topics, posts, users, etc. If you are buying hosting, it is likely that the host will set up any SQL databases for you, but if not, you can go <a href="http://dev.mysql.com/doc/refman/5.1/en/creating-database.html" target="_blank">here</a> for more information.
+
+In this tutorial, we will use <strong>boardsdb</strong> as the database name. <i>(I should note that in this tutorial I will use the term "message board" or "board" as a synonym for forum.)</i> Create the login information for the database as you desire. Now the first thing that we will need to do is create some tables. The tables (and their rows) store the data that the site will use. We will create five tables in total:
+<ul>
+	<li>boards</li>
+	<li>topics</li>
+	<li>posts</li>
+	<li>users</li>
+	<li>levels</li>
+</ul>
+The boards table represents each individual category that a topic can be placed under. For example, in the above picture, "Announcements", "General Discussiuon", and "Programming" are all separate boards. The levels table represents different user levels that we will use to control permissions. For example, "Administrator", "Moderator", and "Regular User" are all different levels. As for the topics, posts, and users, well, I feel as though those are self-explanatory.
+<h2>Table 1: boards</h2>
+To create it, we will type:
+
+[code language="sql"]
+CREATE TABLE boards (
+    board_id INT(8) NOT NULL AUTO_INCREMENT,
+    board_name VARCHAR(255) NOT NULL UNIQUE,
+    board_description VARCHAR(255) NOT NULL,
+    board_create INT(8) NOT NULL,
+    board_view INT(8) NOT NULL,
+    PRIMARY KEY (board_id)
+    ) ENGINE=INNODB;
+[/code]
+
+If you are using phpMyAdmin, consider the following example:
+
+[caption id="attachment_32" align="alignnone" width="640"]<a href="http://www.stephenmarcok.com/blog/wp-content/uploads/2014/03/pma-example.png"><img class="size-large wp-image-32" alt="For phpMyAdmin users: It is similar (easier, actually) in phpMyAdmin" src="http://www.stephenmarcok.com/blog/wp-content/uploads/2014/03/pma-example-1024x192.png" width="640" height="120" /></a> For the remainder of the tutorial I will be working with code, but this example should help you distinguish how to "translate" the code for this interface.[/caption]
+
+So what do each of these things do?
+
+Well, the "<strong>CREATE TABLE boards</strong>" command is fairly obvious -- it creates a table with the name "boards". In the boards table, we will create a number of different fields. The first is <strong>board_id</strong>. This is a unique ID that we will use to identify each board. It automatically increments (and is automatically assigned) whenever an entry is added to the boards table. The next field is <strong>board_name</strong> which is the title of each forum category (ie, in the first example, "Announcements" is the board name.) It is of the type VARCHAR, (which is a variable length string), and has a maximum length of 255 characters. We make this field unique so that no two boards can have the same name. Next, we have <strong>board_description</strong>, which is a small text description for each board that will appear under the board name.
+
+The <strong>board_view </strong>and<strong> board_create</strong> fields are related to user permissions. They will be used to store the minimum user level required to view the board, or to create topics on the board. For example, on the "Announcement" board of my example, the board is viewable by users greater than level 1, but can only have topics created by users greater than level 4 (which is an administrator on my forum). The type of both of these fields is an integer, with maximum length of 8 characters.
+
+Notice that all of these fields are marked as NOT NULL, which means that the field *must* be filled in the table, and if it is not filled, it will be assigned a default value. Finally, I'll just say that INNODB is a storage engine for MySQL.
+<h2>Table 2: topics</h2>
+To create it, we will type:
+
+[code language="sql"]
+CREATE TABLE topics (
+    topic_id INT(8) NOT NULL AUTO_INCREMENT,
+    topic_subject VARCHAR(255) NOT NULL,
+    topic_date DATETIME NOT NULL,
+    topic_board INT(8),
+    topic_by INT(8),
+    last_post DATETIME,
+    PRIMARY KEY (topic_id)
+    ) ENGINE=INNODB;
+[/code]
+
+In this case, <b>topic_id</b> represents the unique ID for each topic, that will automatically increment (and is automatically assigned) whenever a new topic is created. If you are wondering why we do not mark it as unique -- well, we don't need to, because it's automatically generated and incremented, and is therefore guaranteed to not be the same as another topic's ID.
+
+The next field, <b>topic_subject</b> is the name of the topic that appears in the topic list. The <b>topic_date</b> is the date of the topic's creation. It is saved in the DATETIME format. The <b>topic_board</b> records the board_id (recall this from our first table) that the topic is created under. <b>topic_by</b> records the user ID of the user that created the topic (we will get to the user table soon.) Finally, the <b>last_post</b> field records the date of the most recent post in the topic. This will be useful when listing topics, because in a forum listing of topics, you generally want to arrange them according to the topics that are most recently active.
+<h2>Table 3: posts</h2>
+To create it, we will type:
+
+[code language="sql"]
+CREATE TABLE posts (
+    post_id INT(8) NOT NULL AUTO_INCREMENT,
+    post_content TEXT NOT NULL,
+    post_date DATETIME NOT NULL,
+    post_topic INT(8) NOT NULL,
+    post_by INT(8) NOT NULL,
+    post_board INT(8) NOT NULL,
+    PRIMARY KEY (post_id)
+    ) ENGINE=INNODB;
+[/code]
+
+In this table, the purpose of <b>post_id</b>, <b>post_date</b>, <b>post_by</b>, and <b>post_content</b> is almost identical to the fields declared in the topics table. Note that in this table, the type of post_content is TEXT, which allows posts to be longer than 255 characters. Also similarly, the <b>post_topic</b> field simply records the topic_id of the topic that the post is being created under, and the <b>post_board</b> field records the board_id of the board that the topic is under.
+
+For clarification, our forum tree looks like this: ENTIRE FORUM -&gt; Boards -&gt; Topics -&gt; Posts
+<h2>Table 4: users</h2>
+To create it, we will type:
+
+[code language="sql"]
+CREATE TABLE users (
+    user_id INT(8) NOT NULL AUTO_INCREMENT,
+    user_name VARCHAR(15) NOT NULL UNIQUE,
+    user_pass VARCHAR(255) NOT NULL,
+    user_email VARCHAR(255) NOT NULL,
+    user_date DATETIME NOT NULL,
+    user_level INT(8) NOT NULL,
+    PRIMARY KEY (user_id)
+    ) ENGINE=INNODB;
+[/code]
+
+Most of these fields are self-explanatory or similar situations have been discussed before. Note that in this table, we are restricting <b>user_name</b> to have a maximum length of 15 characters only. Also, <b>user_date</b> is the user's time of account creation.
+<h2>Table 5: levels</h2>
+To create this, we type:
+
+[code language="sql"]
+CREATE TABLE levels (
+    id INT(8) NOT NULL AUTO_INCREMENT,
+    level INT(8) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description VARCHAR(255) NOT NULL,
+    PRIMARY KEY (id)
+    ) ENGINE=INNODB;
+[/code]
+
+In this table, <b>id</b> represents the ID of each level. Don't worry about this. <b>level</b> represents the numeric value of a user's level. <b>title</b> represents the title of the level, and <b>description</b> is a short description detailing the features of the specific level.
+
+For example:
+
+<em><b>4: Administrator</b></em>
+<em> User can review and ban users, as well as control all other aspects of the boards</em>
+
+This level has the numeric level value (4), level title (Administrator), and description.
+
+Now that all five tables have been created, we are done with the database side of things. We can now move on to the coding of web pages!
+<div style="border: 1px solid blue; padding-left: 3px; padding-right: 3px;">If you are only interested in using the forum that I have already created and uploaded, all that's left is to open up <strong>connect.php</strong> and insert your own login information.
+For example:
+[code language="php"]
+define('DB_NAME', 'boardsdb');
+define('DB_USER', 'YOURUSERNAME');
+define('DB_PASSWORD', 'YOURPASSWORD');
+define('DB_HOST', 'localhost');
+[/code]
+
+Then just go to your site. If you see an error about connection to the database, there is a problem with your username or password. If there is no error and the site is loaded, congrats! Register a user, and it will initially be set to level 2. But you need to be level 4 to be an administrator, so pull up your database table and change the user_level to be 4. If you are not using phpMyAdmin, use this code:
+
+[code language="sql"]
+UPDATE users SET user_level = 4 WHERE user_id = 1;
+[/code]
+
+Then when you log in to your forum, you will be level 4, and will have access to create new boards via the 'Edit Boards' link in the navbar. You can either create them in this manner, or directly through SQL:
+
+[code language="sql"]
+INSERT INTO boards (board_name, board_description, board_view,
+board_create) VALUES ('My First Board','My First Description',2,2);
+[/code]
+
+Additionally, if you want to define user levels, you will have to do so via SQL:
+
+[code language="sql"]
+INSERT INTO levels (level, title, description)
+VALUES (4,'Administrator','User has full control of the boards');
+[/code]
+
+You will notice that the level now appears in your help page, which is linked to in the navigation bar. Here are some sample levels that you can use to get you started:
+
+<a href="http://www.stephenmarcok.com/blog/wp-content/uploads/2014/03/sampleLevels.png"><img class="size-full wp-image-58 aligncenter" alt="Note: The boards are by default coded such that moderator functions are given to level 3 (and up) users, and admin functions are given to level 4 (and up) users." src="http://www.stephenmarcok.com/blog/wp-content/uploads/2014/03/sampleLevels.png" width="415" height="237" /></a>
+
+<strong>Note: The boards are by default coded such that moderator functions are given to level 3 (and up) users, and admin functions are given to level 4 (and up) users.</strong>
+
+</div>
+<h1></h1>
+<h1>Connecting to the Database</h1>
+By now, you should definitely have downloaded the <a href="http://stephenmarcok.com/uploads/internet-forum.zip">code that I've provided</a>. For the remainder of the tutorial, I will try my best not to post long code, but rather code snippets from the files that you download. <i>Consider those to be the "textbook" for this tutorial -- note that I've documented each file, and they all have headings that give a brief overview of what they are used for.</i>
+
+The first file that we will be working with is <b>connect.php</b>
+
+[code language="php"]
+<?php
+define('DB_NAME', 'boardsdb'); //fill in your database name
+define('DB_USER', '____'); //fill in your database login name
+define('DB_PASSWORD', '____'); //fill in your database password
+define('DB_HOST', 'localhost'); //this should be localhost
+
+$link = mysql_connect(DB_HOST, DB_USER, DB_PASSWORD);
+if (!$link) {
+ 	die('Could not connect: ' . mysql_error());
+}
+
+$db_selected = mysql_select_db(DB_NAME, $link);
+if (!$db_selected) {
+ 	die('Can\'t use ' . DB_NAME . ': ' . mysql_error());
+}
+?>
+[/code]
+
+This page is never actually viewed by the user, but it is important that we include it. It gives instructions on how to connect to the SQL database that our forum will be stored on. Since this is our first view of PHP, I will explain it thoroughly. We begin by defining a set of constants (note the difference between the following):
+
+[code language="php"]
+define('constant','I am a constant string!')
+$variable = "I am a variable!"
+[/code]
+
+Going back to our file... we define these constants to be the database name (which above I said we would call <b>boardsdb</b>, but you will need to enter in your own username and password. The host for the database is localhost, because the database is hosted on the same computer that the web server is (which is the server that will be processing the PHP).
+
+Next, we will initiate the link to our MySQL database using the <strong>mysql_connect()</strong> function, with the constants that we earlier defined. If the connection is successful, it returns a link identifier as a result. If it is unsuccessful, it returns false. We store this result in a variable, <b>$link</b>.
+
+Our next statement checks to see if $link is false or not. If it is false, this indicates that the connection failed, so we will return an error message using <b>die()</b> -- this is used to terminate the program, and anything afterwards will not be run. <i>Note that the syntax for appending to a string consists of a period.</i>
+
+If, however, $link is successful, we proceed to select the specific database that we need to use, using the <b>$mysql_select_db()</b> function. Now that this is complete, pages will be able to connect to your MySQL database. If you see an error on your webpage, then you likely have a problem with your credentials and should return to this file to ensure that everything is proper.
+
+You may be wondering how we integrate the connect.php file with the rest of the site. The answer is quite simple -- PHP, like many other programming languages will allow you to include your file within other files using the <strong>include</strong> statement. For example, if your index.php file wants to access the database, you can insert the following code at the top of your document, and it will allow the connection for that specific page.
+
+[code language="php"]
+<?php include 'connect.php'; ?>
+[/code]
+
+Note that you must include connect.php on <em>every</em> page that has a database interaction.
+<h1>Header and Footer</h1>
+The include statement allows us to do another cool thing: You can create a <strong>header.php </strong>and <strong>footer.php</strong>, and include those in every page. Then, the header and footer will be automatically inserted. So if you have a number of pages on your website, and you want to modify the header, you can simply change header.php and not have to individually go through all of your pages, making the same change each time.
+
+Consider the following example:
+
+<b>header.php</b>
+
+[code language="php"]
+<html>
+   <head>
+      This text is in header.php!
+   </head>
+   <body>
+[/code]
+
+<b>footer.php</b>
+
+[code language="php"]
+      This text is in footer.php!
+   </body>
+</html>
+[/code]
+
+<b>index.php</b>
+
+[code language="php"]
+<?php include 'header.php'; ?>
+
+This text will be in between
+
+<?php include 'footer.php'; ?>
+[/code]
+
+When the webpage loads, index.php will display:
+
+[code language="text"]
+This text is in header.php!
+This text will be in between
+This text is in footer.php!
+[/code]
+
+You can see that in almost all of my forum pages, I include <a href="https://github.com/marcokstephen/internet-forum/blob/master/header.php" target="_blank"><b>header.php</b></a>. However, in some cases (4 pages, to be exact), I include <a href="https://github.com/marcokstephen/internet-forum/blob/master/header2.php" target="_blank"><b>header2.php</b></a>, which is simply a second header file that does not include the navigation bar. It is used on the following pages where the navigation bar is irrelevant:
+<ul>
+	<li>login.php</li>
+	<li>confirm-login.php</li>
+	<li>register.php</li>
+	<li>confirm-registration.php</li>
+</ul>
+If you were to look at the code behind header.php, you would notice that there are some if statements, depending on whether or not a user is logged in. To understand this, we will first look at the account system.
+<h1>The Account System</h1>
+We will start with <a href="https://github.com/marcokstephen/internet-forum/blob/master/register.php" target="_blank"><b>register.php</b></a>, since that is the first thing that a user must do to participate in your forum. Notice at the top of the document, we include <b>session_start();</b>. You can ignore this for now (just make sure it is included at the very top), I will explain it when I am talking about login-confirmation.php.
+
+The first thing that register.php does, is check to see if the user is currently logged in. It does this by checking the session. Just like with session_start();, ignore this for now and come back to it after I have discussed login-confirmation.php. For now, we will just assume that the user is *not* already logged in (in which case the form will load). As mentioned earlier, I am assuming that you have previous knowledge of HTML, but if necessary <a href="http://www.w3schools.com/html/html_forms.asp" target="_blank">you can brush up here</a>. Note that the HTTP method we are using is POST. The form will POST to confirm-registration.php.
+
+<a href="https://github.com/marcokstephen/internet-forum/blob/master/confirm-registration.php" target="_blank"><b>confirm-registration.php</b></a> begins by storing all of the data POSTED by the registration page into variables:
+
+[code language="php"]
+$value = mysql_real_escape_string($_POST['create-username']);
+$value2 = mysql_real_escape_string($_POST['create-password']);
+$value3 = mysql_real_escape_string($_POST['create-email']);
+$value4 = mysql_real_escape_string($_POST['create-age']);
+$value5 = mysql_real_escape_string($_POST['confirm-password']);
+[/code]
+
+Notice that the names <i>create-username, create-password, create-email, etc</i> are the same names that the fields had in the form on register.php. Also note the use of <b>mysql_real_ecape_string();</b>. This is used for security, by restricting the inputs that a user could give. (<a href="http://www.w3schools.com/php/func_mysql_real_escape_string.asp" target="_blank">more info here!</a>)
+
+After we create all of the variables from the form data, we perform a simple check to ensure that the data is valid, and an additional check to ensure that the password matches the confirmed password. If all is good, we move on to inserting the data into the database.
+
+[code language="php"]
+$sql = "INSERT INTO users(user_name, user_pass,
+           user_email, user_date, user_level)
+	VALUES('" . strip_tags($value) . "',
+		'" . sha1($value2) . "',
+		'" . strip_tags($value3) . "', NOW(), 2)";
+
+$result = mysql_query($sql);
+if (!$result)
+{
+	die('Error: ' . mysql_error());
+}
+[/code]
+
+This might look intimidating, but there is not actually that much going on here. The first thing that we do is create a string, and store it into a PHP variable (in this case the variable is named $sql. The string makes use of the variables that we declared just above. It also modifies these variables through the use of <b>strip_tags()</b> and <b>sha1()</b>.
+
+Firstly, strip_tags() is useful because it prevents a user from inputting HTML tags, as these can cause glitches. Consider a user that has an opening HTML tag in their username, but never closes it. Every time a page displays their username, it will cause unexpected results! As for sha1(), this is used to hash passwords so that they are not stored in plaintext. The other two values in the $sql string are <b>NOW()</b>, which returns the date and time, and 2, which will be the default user level when a user registers on our forum.
+
+The next thing that we do is run the SQL query, using <b>mysql_query()</b>. We run the query that we wrote by passing the PHP string in to the function. The results of the query are stored in the PHP variable $result. If the query is successful, it returns the data. If the query is unsuccessful, it returns false. As such, we can use $result in an if statement, and if the query was unsuccessful, we can return an error message to the user, while also terminating the rest of the program using die(). If die() is not run, the query must have been successful, so we can display a confirmation message to the user using <b>echo</b>. If a user registers and the confirmation message is displayed, you should be able to view them in the list of users on your SQL table.
+
+Run the following SQL query on your database to return the list of users:
+
+[code language="sql"]
+SELECT * FROM users;
+[/code]
+
+This concludes the registration process. We move on to <a href="https://github.com/marcokstephen/internet-forum/blob/master/login.php" target="_blank"><b>login.php</b></a>. This page is very similar to the registration page: it checks to see if the user is logged in already by checking the session, and if not, displays a login form. It POSTS to confirm-login.php.
+
+<a href="https://github.com/marcokstephen/internet-forum/blob/master/confirm-login.php" target="_blank"><b>confirm-login.php</b></a> makes use of a slightly different SQL query:
+
+[code language="php"]
+$sql = "SELECT user_id, user_name, user_level FROM users
+	 WHERE user_name = '" . mysql_real_escape_string($_POST['username']) . "'
+	 AND user_pass = '" . sha1($_POST['password']) . "'";
+
+$result = mysql_query($sql);
+[/code]
+
+We follow the same style of saving a string into a PHP variable, and then running the mysql_query using the string. But this time, instead of INSERT INTO a table, we SELECT from a table. This is because the user already exists, and we just need to pull them up when they log in! We do this by searching all users, and returning the users that match the username and password given. Notice that we once again use mysql_real_escape_string() for security, and sha1() to hash the password.
+
+After we run the query, we analyze $result using <b>mysql_num_rows($result)</b>. This returns the number of rows that the query returned (where each row would represent a different user.) If the number of rows in the returned data is equal to zero, then that means that there are no accounts that match the given username and password. Therefore we display an error message to the user informing them that they entered an invalid username/password combination.
+
+If the number of rows is greater than zero, the user must have entered the correct credentials. We can proceed with the sign-in process -- the first thing we do is set:
+
+[code language="php"]
+$_SESSION['signed_in'] = true;
+[/code]
+<h2>Aside: PHP Sessions</h2>
+A session in PHP allows you to maintain user information as they navigate between multiple webpages. Session data is temporary. It is deleted after the user leaves the site, as opposed to data stored in a database (which is permanent). We can store several values in a session, such as username, or user level. Note that every page which uses PHP sessions must include <b>session_start();</b> at the beginning of the page (if your sessions aren't working, check for this first)!
+
+As mentioned earlier, we use sessions on the register.php and login.php pages, to determine if the user is already logged in:
+
+[code language="php"]
+if (isset($_SESSION['signed_in']) && $_SESSION['signed_in'] == true)
+{
+	echo 'You are already logged in!';
+}
+[/code]
+
+While this code is redundant, it shows two uses of $_SESSION. The first checks whether the session is set, and the second checks that the specific value of $_SESSION['signed_in'] is set to true. While on this site we could completely avoid using <b>isset</b>, you may find a use for it in other applications.
+<h2>Returning to login-confirmation.php...</h2>
+The next piece of code we encounter is:
+
+[code language="php"]
+while($row = mysql_fetch_assoc($result))
+{
+	$_SESSION['user_id'] = $row['user_id'];
+	$_SESSION['user_name'] = $row['user_name'];
+	$_SESSION['user_level'] = $row['user_level'];
+}
+[/code]
+
+Do you remember earlier when I mentioned that SQL queries returned the results in rows? Think about it: When you write an SQL query to select data, you are sending a request to list all of the data in a specific table that matches your request parameters. This table is comprised of rows, so it looks through the rows, picking out the rows that match your requested data, and returning them. As such, you cannot use the data right after a query -- it is simply not in the form that you want. However, to put it in the form that you want, we can use a <b>while loop</b> to cycle through the rows one by one. <i>(Note: if you are unfamiliar with iterative programming, <a href="http://www.w3schools.com/PhP/php_looping.asp" target="_blank">check this out.</a>)</i>
+
+We use the <b>mysql_fetch_assoc()</b> function, because it takes a row from the results, and returns it as an associative array. But what does this mean? Well, you may be familiar with arrays in a language such as Java, where an array is indexed with numbers. In a PHP associative array, the array is indexed according to the name of each column in the row. Still doesn't make sense? Look back at the initial SQL query. We requested user_id, user_name, and user_level. So, assuming we had a row containing the data:
+<table style="border: 1px solid black;">
+<tbody>
+<tr>
+<td>1</td>
+<td>Stephen</td>
+<td>4</td>
+</tr>
+</tbody>
+</table>
+by calling mysql_fetch_assoc on this row (and storing the result in a variable called $output), we would get the following array:
+
+[code language="text"]
+$output['user_id'] --> 1
+$output['user_name'] --> Stephen
+$output['user_level'] --> 4
+[/code]
+
+If you are familiar with Lisp, consider that it is similar to an association list.
+
+So now that I have explained how to process the rows of returned data, I can explain what we will do with each row. In our code snippet, we are saving the results of mysql_fetch_assoc($result) into a variable called $row. This means that <b>$row['user_id']</b>, <b>$row['user_name']</b>, and <b>$row['user_level']</b> will all be defined, containing the values corresponding to the user that just logged in. We are now going to transfer this information over to the session, so that we can use this information across multiple different pages of the site.
+
+Note: We use the value saved in <b>$_SESSION['user_level']</b> to determine if a user has permission to do certain actions on the site.
+
+This concludes the login process. A new session is initialized every time the user logs in, and every time, the session is populated with data that is fetched from the database.
+
+By now, you should be able to understand the code behind <a href="https://github.com/marcokstephen/internet-forum/blob/master/logout.php"><b>logout.php</b></a> quite easily.
+
+[code language="php"]
+<?php
+session_start();
+session_destroy();
+?>
+[/code]
+
+We call <b>session_destroy()</b>, which unsets $_SESSION['signed_in'].
+
+Now, if you look back at <b>header.php</b>, you should be able to understand how we display different navigation bars, depending on if the user is signed in or not, and how we can display administrator tools, depending on what their user level is.
+<h1>The Forum</h1>
+Now that you have completed the account process, we can look at the coding of the boards. Let's start with <a href="https://github.com/marcokstephen/internet-forum/blob/master/index.php"><b>index.php</b></a>, the page that users view when they first visit your site. By this point, you already know the majority that you need to know in terms of SQL and PHP, so for the remainder of the tutorial, you will see different applications of what you already know.
+
+On index.php, the main task will be to list all of the different board categories. For example, on my screenshot (at the very top of the page), I have board categories including Announcements, General Discussion, Programming, etc. To be able to display these boards, we first submit a query to return the list of boards.
+
+[code language="php"]
+$sql = "SELECT board_id, board_name, board_description,
+        board_view, board_create FROM boards";
+$result = mysql_query($sql);
+[/code]
+
+Assuming there are no errors with the query, we use a while loop (as we did before) to create an associative array so we can actually work with the data returned from the query. Because we are using a while loop that repeats, we realize something: we don't need to hard-code the HTML to display all of our results. Instead, we can code the display layout for JUST ONE listing of board category, and the while loop will recreate this display layout over and over again. The idea is that each time the loop is run, the layout will be recreated and displayed, but the fields within the layout will be different each time.
+
+So let's think about what our layout will look like for just one board listing. Generally on a forum, there are at least these four pieces of data:
+<ul>
+	<li>Board name</li>
+	<li>Board description</li>
+	<li>Number of topics on that board</li>
+	<li>Date of last post on the board</li>
+</ul>
+Well, the board_name and board_description we have already fetched, in our previous SQL query. But we need to write some queries to get the number of topics, and the date since last post. Let's start with the first of those two:
+
+[code language="php"]
+$numberTopics = "SELECT COUNT(topic_id) FROM topics
+                  WHERE topic_board = " . $row['board_id'];
+        $numTopics = mysql_query($numberTopics);
+        $topicCount = mysql_fetch_assoc($numTopics);
+[/code]
+
+Recall that since we are working within the while loop, $row['board_id'] is defined, so we can use it in other queries. With this specific query, we are going to the topics table, and listing all of the topics that are found on the specific board ID. <i>(Remember when we were creating the tables, I stated "The <b>topic_board</b> records the board_id that the topic is created under.")</i> However, this query, instead of returning the actual topics, just returns the NUMBER of topics that fit the criteria. This value matches what we're looking for, which is the number of topics on the specific board. Again, we use mysql_fetch_assoc to convert the row into a usable data format, but we do not need to use a while loop in this situation because the query will only ever return one row.
+
+Next, we will find the date of the most recent post:
+
+[code language="php"]
+$recentPost = "SELECT last_post FROM topics WHERE
+   topic_board = '" . $row['board_id'] . "'
+   ORDER BY last_post DESC LIMIT 1";
+$recentPosts = mysql_query($recentPost);
+$mostRecentPost = mysql_fetch_assoc($recentPosts);
+[/code]
+
+In this case, we will return a list of dates, the length of which is equal to the number of topics on the board. However, we still do not need to use a while loop with mysql_fetch_assoc, because in the query, we are ordering the data so that the most recent date appears first, which is the only date that we are interested in.
+
+The remainder of index.php is mostly building the layout in HTML. There are some nested if/else statements, but what these statements are doing is just determining if a user has permissions to view the board, according to the board_view field that was included in our initial SQL query (the first query found in index.php). We compare this field against the $_SESSION['user_level'] value, which was initiated during login-confirmation.php.
+
+The general procedure for index.php is as follows:
+<ol>
+	<li>Submit a query to return the list of all boards on the forum</li>
+	<li>Select a single board from the list</li>
+	<li>Find the number of topics/last post date for the board</li>
+	<li>Determine if the minimum board_view allows a user to view the board
+<ul>
+	<li>If they do not have permission, the HTML layout is not generated, and they cannot see it</li>
+	<li>If they do have permission, the HTML layout IS generated</li>
+</ul>
+</li>
+	<li>Repeat steps 2-4 while there are still boards left to show</li>
+</ol>
+<i>Troubleshooting tip: If the page loads for you, but no boards are displayed in the list, ensure that you actually have boards created!!</i>
+
+The documentation within index.php attempts to illustrate what the different user level permission checks do, but in case you want a visual representation, here is the difference that is seen between a level 2 user, and a level 4 user on my forum:
+
+[caption id="attachment_27" align="aligncenter" width="793"]<a href="http://www.stephenmarcok.com/blog/wp-content/uploads/2014/03/finishedproduct.png"><img class="size-full wp-image-27" alt="A snapshot of the finished index.php (on a very low res..)" src="http://www.stephenmarcok.com/blog/wp-content/uploads/2014/03/finishedproduct.png" width="793" height="473" /></a> View of a level 4 administrator[/caption]
+
+[caption id="attachment_92" align="aligncenter" width="807"]<a href="http://www.stephenmarcok.com/blog/wp-content/uploads/2014/03/regUserView.png"><img class="size-full wp-image-92" alt="View of a level 2 regular user" src="http://www.stephenmarcok.com/blog/wp-content/uploads/2014/03/regUserView.png" width="807" height="368" /></a> View of a level 2 regular user[/caption]
+
+Post a comment below if you have trouble with the if/else statements. Otherwise, there is only one important thing left to discuss regarding index.php, and that is how URLs to the different boards are generated.
+
+Let's look at a sample of how a URL to a board is created:
+
+[code language="php"]
+<a href="topics.php?bid=' . $row['board_id'] . '">' . $row['board_name'] . '</a>
+[/code]
+
+We see that the main link is to <b>topics.php</b> (and we will get to this next), but we append some other information to the end of the URL as well. We do this to differentiate between different boards, or else each board would have the same URL and you can see why that wouldn't work. For example, on my site, the links to my Announcements and General Discussion boards are as follows:
+
+[code language="text"]
+Announcements: topics.php?bid=1
+General Discussion: topics.php?bid=2
+[/code]
+
+By appending the information to the URL in this specific way: "?bid=", we can write code in topics.php that grabs the data out of the URL, and then use the same data to run more queries! So basically, this is a way to pass non-private data between two different webpages.
+<h2>Topic Layouts</h2>
+<a href="https://github.com/marcokstephen/internet-forum/blob/master/topics.php" target="_blank"><b>topics.php</b></a> is similar to index.php, but we are displaying slightly different data. The first thing that we will do is grab the data from the URL that we appended in index.php, and add its value to a PHP variable:
+
+[code language="php"]
+$bid = mysql_real_escape_string($_GET['bid']);
+[/code]
+
+Remember how I said that as long as the data was appended in a specific way, it could be retrieved? Well, <b>$_GET['bid']</b> will retrieve the data, as long as the keywords (in this case: "bid") are the same. Because of this, we can actually append multiple things to our URLs! For example:
+
+[code language="text"]topics.php?bid=1&tid=2&uid=3[/code]
+
+We won't be using this right now, but later in the tutorial we will use more than one at a time.
+
+Next, we will submit our SQL query to return the permissions for the board. The permissions include what the minimum user level must be to view the board, or to create topics on the board.
+
+[code language="php"]
+$query = "SELECT board_view,board_create,board_name
+          FROM boards WHERE board_id = $bid";
+[/code]
+
+Note that this query makes use of the $bid variable, which is the same data that was passed through the URL.
+
+After the data is fetched, we check to make sure that there is at least one row in our returned data. If there isn't, then that means that the board_id does not correspond to any board in the database, and thus, the board must not be real! (Most often, this will occur if the user modifies the 'bid' field of the URL.) In response, we return a 404 error.
+
+[caption id="attachment_128" align="aligncenter" width="768"]<a href="http://www.stephenmarcok.com/blog/wp-content/uploads/2014/03/topicsphp.png"><img class="size-full wp-image-128" alt="An example view of topics.php" src="http://www.stephenmarcok.com/blog/wp-content/uploads/2014/03/topicsphp.png" width="768" height="204" /></a> An example view of topics.php[/caption]
+
+However, if the board, exists, we can proceed. The differences between the layouts of topics.php and index.php is that we must display the board name near the top of the page, so the user knows what board the topics are categorized under. We must also show a "Create New Topic" button, but only if the user has permission (is a high enough level) to create topics on that specific board. As an example, on my forum, a regular level 2 user can create topics on the General Discussion board, but not on the Announcements board.
+
+Once again, we complete these permission checks by analyzing the PHP session, and seeing if $_SESSION['user_level'] exceeds or is equal to the minimum level required. See the code of topics.php for more information regarding permission checks.
+
+Once we have determined that the user does have permission to view the board, we can start to display the topics. We first fetch the topics using an SQL query:
+
+[code language="php"]
+$sql = "SELECT topic_id, topic_subject, topic_date, topic_board,
+        topic_by, last_post, user_name FROM topics LEFT JOIN users
+        ON topics.topic_by = users.user_id WHERE topic_board =
+        '" . mysql_real_escape_string($_GET['bid']) . "'
+        ORDER BY last_post DESC";
+[/code]
+
+Notice that in this query, we are getting all of the topics that have a board_id matching to 'bid'. Also note that when we are returning the results, we use <b>ORDER BY last_post DESC</b>. This means that the most recently active topics will appear at the top of the list. This query also introduces something new: the <b>LEFT JOIN</b> command. You'll notice that in our query, we are requesting user_name from the table 'topics', but there is no such field in 'topics'! To fix this, we can LEFT JOIN the 'users' table. This matches the data between two tables, and for some examples you can <a href="http://www.w3schools.com/sql/sql_join_left.asp" target="_blank">look here</a>.
+
+Now we can begin to shape the layout for each topic listing. Just like on index.php, we are using a while loop, so we only need to design the layout for one topic, and then we can duplicate it the required number of times.
+
+There are four things that we will be displaying for each topic listing:
+<ol>
+	<li>Topic Name</li>
+	<li>Topic Creator</li>
+	<li>Post Count</li>
+	<li>Last Post Date</li>
+</ol>
+For the topic name and topic creator, we use the topic_subject and user_name that we fetched in our most recent query. For the post count, we use a query similar to when we were fetching the topic count on index.php. And we use a similar query to get the last post date, too.
+
+You will notice that in my code for topics.php, my code seems to be written twice. This duplication is due to permissions, and if you follow along with the if/else statements relating to user permissions, it should become clear.
+
+One of the last things to note regarding this page is the way that we display links to posts.php, (which is the page that displays all of the posts in each topic).
+
+We use the following code to generate our links:
+
+[code language="php"]
+<a href="posts.php?bid=' . $bid . '&tid=' . $row['topic_id'] . '">' . strip_tags($row['topic_subject']) . '</a>
+[/code]
+
+Just like on index.php, we are appending some data to the end of the URL, but in this case, we are appending two pieces of data. The process is very similar, just note that each piece of data is appended with '<b>&amp;</b>'. The reason that we must append both the board_id and topic_id of each topic is we will be using both of these fields when we submit our SQL query to fetch the posts.
+<h2>Post Layouts</h2>
+<i>(This page is very similar to index.php and topics.php, so my explanation will be fairly brief. As always, looking at the code will be very beneficial to you understanding what is happening.)</i> We begin <a href="https://github.com/marcokstephen/internet-forum/blob/master/posts.php" target="_blank"><b>posts.php</b></a> by creating two variables which we populate with the board ID and topic ID. Once again, we must check permissions to see if the user is allowed to view the board, so we create an SQL query using the board ID that we got from the URL. The reason that we must check the permissions at each step in the process is because otherwise, it would be easy for a user to bypass one of our checks by simply entering a URL. The permission system is also why we must search for posts in topics using both the board ID and topic ID. We *could* use just the topic ID in our SQL query, but then there would be no way to determine if a user had permission to view that topic or not! By using both board ID and topic ID in our search, we can link these two variables, and only display the topic <i>if</i> the user has permission to see it.
+
+[caption id="attachment_129" align="aligncenter" width="706"]<a href="http://www.stephenmarcok.com/blog/wp-content/uploads/2014/03/posts.php_.png"><img class="size-full wp-image-129" alt="An administrator's view of posts.php" src="http://www.stephenmarcok.com/blog/wp-content/uploads/2014/03/posts.php_.png" width="706" height="304" /></a> An administrator view of posts.php[/caption]
+
+Appending the board ID to the URL also allows us to create links back to the "Topic List", where we can append the board ID to the URL, and return the user to the board which they came from when they are finished browsing the topic.
+
+We generate a link to "Add New Reply" at the top of the page, and this link appends the board ID and topic ID of the topic, so that the database knows where to place the post when it is completed. I will discuss the posting process further in the tutorial.
+
+Something to note is that when we display the post, we also want to display the name of the poster and the date which they posted it at. We can get this information using the following SQL query:
+
+[code language="php"]
+$sql = "SELECT post_id, post_content, post_date, post_topic,
+        post_by, user_name FROM posts LEFT JOIN users ON
+        posts.post_by = users.user_id WHERE post_board =
+        '" . mysql_real_escape_string($_GET['bid']) . "' AND
+        post_topic = '" . mysql_real_escape_string($_GET['tid']) . "'";
+[/code]
+
+When we are displaying the name of the user, we will make it a hyperlink that displays their basic profile when clicked! To do this, we generate the link in the following way:
+
+[code language="php"]
+<a href="user.php?bid=' . $bid . '&tid=' . $tid . '&uid=' . $row['post_by'] . '">' . strip_tags($row['user_name']) . '</a>
+[/code]
+
+Note that in this situation, we are appending the board_id, topic_id, and user_id of the poster! You will see more about this when I discuss user.php.
+
+One last thing to note is that if a user is a moderator or administrator, we want to give them the option to delete the message or topic, so we will create a link to delete-msg.php (or delete-topic.php), along with the ID information for the specific post (or topic). This will be discussed more later in the tutorial, when I discuss administrative functions.
+
+Now that we have created the shell of our forum, we will add in the ability to let users create posts and topics!
+<h1>Posting and Creating Topics</h1>
+There are two different pages on our forum that are dedicated to user posts: <b>reply.php</b> and <b>newtopic.php</b>.
+
+We will begin with <a href="https://github.com/marcokstephen/internet-forum/blob/master/reply.php" target="_blank"><b>reply.php</b></a>. The page starts by getting the board_id and topic_id from the URL. We use this information when we are inserting the post into the 'posts' table, since we have fields for this information. The next thing that occurs is that the page ensures that the user is logged in by looking at the PHP session. The user must always be logged in to post messages.
+
+If the user is logged in, we check to ensure that the board_id we are trying to post to is a valid board ID, and lastly, we check to ensure that the user has permission to view the board. If any of these checks fail, we display the appropriate error message.
+
+Assuming all the permissions are successful, we can start. Remember that when we did the login.php and login-confirmation.php pages, we POSTED the form information from login.php, and login-confirmation.php processed it. In reply.php, the page both POSTS and processes. It does this by POSTING to itself.
+
+The page begins by checking to see if there is an existing POST request, with the following code:
+
+[code language="php"]
+if($_SERVER['REQUEST_METHOD'] != 'POST')
+[/code]
+
+If there is an incoming POST request, then the form must already have been completed, and the page will process the input. But if there is not already an incoming request, the page will display an HTML form where a user can type their message. When they are finished, they will "submit" the text, and the page will POST to itself, at which point it will process the data and insert the post into the database.
+
+After the post is submitted, we submit two separate queries.
+
+[code language="php"]
+$value1 = strip_tags(mysql_real_escape_string($_POST['reply-txt']), '
+
+');
+$strippedValue1 = strip_tags($value1);
+$value2 = mysql_real_escape_string($_GET['tid']);
+$value3 = $_SESSION['user_id'];
+
+$sql = "INSERT INTO posts (post_content, post_date,
+        post_topic, post_by, post_board) VALUES ('$value1',
+        NOW(), '$value2', '$value3', '$bid')";
+
+$updateBoardTime = "UPDATE topics SET last_post = NOW() WHERE
+                    topic_id = $value2";
+[/code]
+
+Take note of how we are once again using the strip_tags function to increase security and prevent bugs. However, this time, we add in the exception that the
+and
+
+tags are allowed (and will not be removed). This is so that users can format their posts with line breaks. The first query inserts the post into the 'posts' table, and the second query updates the topic table by refreshing the "last post" date that is visible when the topics are listed on topics.php.
+
+Once the queries are completed and the post is submitted, we return a confirmation message, with a link back to the topic that is generated using the board_id and topic_id that we took from the URL. This concludes the reply process.
+
+The process for creating a new topic (<a href="https://github.com/marcokstephen/internet-forum/blob/master/newtopic.php" target="_blank"><b>newtopic.php</b></a>) is quite similar. Once again, it checks that the user is signed in, that the user has permission to create topics on the board, and that the board they are trying to create on is valid. newtopic.php, similarly to reply.php, has two functions: POSTING forms, and processing the POSTED forms. If there is not a current POST request, it displays the form required to create a new topic and message, and if there is a current request, it does not show this form, but instead processes the data.
+
+The process differs slightly from reply.php because instead of simply adding a reply to the topic, we must first create the topic, and then add the reply to it. So obviously, we will begin by processing the topic component of the form. We do so with the following SQL query:
+
+[code language="php"]
+$value1 = strip_tags(mysql_real_escape_string($_POST['topic-title']));
+$value2 = $bid;
+$value3 = $_SESSION['user_id'];
+
+$sql = "INSERT INTO topics (topic_subject, topic_date, topic_board,
+        topic_by) VALUES ('$value1', NOW(), '$value2', '$value3')";
+[/code]
+
+(<i>Note that earlier in the code (not listed in the tutorial), we defined $bid according to the board_id that was passed through the URL.</i>) This concludes the insertion of the topic into the 'topics' table. The next thing that we will do is add the post to the topic. However, we have a bit of a problem, because to insert posts, we must know the topic ID that we want to insert the post under! But we don't have that in our URL because the topic hadn't been created yet! We can solve this issue using a function: <b>mysql_insert_id();</b>. Consider the following code:
+
+[code language="php"]
+$tid = mysql_insert_id();
+
+$messageText = strip_tags(mysql_real_escape_string($_POST['topic-message']), '
+
+');
+$addMessage = "INSERT INTO posts (post_content, post_date, post_topic,
+              post_by, post_board) VALUES ('$messageText', NOW(), '$tid',
+              '$value3', '$bid')";
+[/code]
+
+You can see that we obtain the topic ID by using the mysql_insert_id() function, which simply returns the ID generated in the most recent query, which in this case, is the ID of the topic that we want to assign our post to. From here, we add our post to the topic just like how we did in reply.php, and we update the last post time in the same way as well:
+
+[code language="php"]
+$updateTopicTime = "UPDATE topics SET last_post = NOW()
+                    WHERE topic_id = $tid";
+[/code]
+
+After the process is complete, we return a confirmation message to the user, with a link back to their topic. This concludes the user posting process.
+<h1>User Profiles</h1>
+I mentioned earlier that we would make usernames (next to each user's post) hyperlinks that would link to a basic public profile for the user. For example, the following picture depicts what my public profile looks like on my forum. It displays basic information such as my user id, username, user level, and account creation date.
+
+[caption id="attachment_110" align="aligncenter" width="852"]<a href="http://www.stephenmarcok.com/blog/wp-content/uploads/2014/03/publicprofile.png"><img class="size-full wp-image-110" alt="Note that you do not need to be logged in to view this page." src="http://www.stephenmarcok.com/blog/wp-content/uploads/2014/03/publicprofile.png" width="852" height="241" /></a> Note that you do not need to be logged in to view this page.[/caption]
+
+If you look back at posts.php, you'll notice that with each users' username, there is a hyperlink generated that leads to <b>user.php?bid=<i>x</i>&amp;tid=<i>x</i>&amp;uid=<i>x</i></b>. The page that we will be creating the public profile on is <a href="https://github.com/marcokstephen/internet-forum/blob/master/user.php" target="_blank"><b>user.php</b></a>.
+
+We start off by obtaining 'bid', 'tid', and 'uid' (which stands for user ID) from the URL. Next, we search the database for the user who corresponds to the specified ID, and this is the user whose profile we will display. We begin by fetching the username, user level, and account creation date that corresponds to the specific ID. We will display this information in a table, that must be coded in HTML (see my code of user.php for more information). Note that instead of just showing the user level, we may also want to give a brief description of the user level, as well as the title of the level. Luckily, we have a table that stores all of this information, so it is easy to fetch! We use the following SQL query that searches for the level corresponding to the user's level:
+
+[code language="php"]
+$levelQuery = "SELECT level, title, description FROM
+               levels WHERE level = " . $level;
+[/code]
+
+<i>Note that in the code, we have previously defined <b>$level</b> as the user's level which we fetched in a previous SQL query -- not specifically shown here.</i>
+
+This makes up the entirety of the data that is displayed on a user's public profile. But now, you may also want a user to be able to view their own private information! For this, I have added in <a href="https://github.com/marcokstephen/internet-forum/blob/master/me.php" target="_blank"><b>me.php</b></a>.
+
+A main difference between me.php and user.php, is that me.php is visible only to the currently logged in user. It is accessed by clicking their username in the navigation bar -- which only appears when they are logged in. On *my* forum, the private profile page doesn't differ much from the public profile page, except that the private page also lists the email that the user used to register for the forum. You might find a greater use for this page, however.
+
+Another difference between these two pages is that it relies on the PHP session for the majority of its data, rather than strictly database results. Despite this, the format is almost identical to user.php, so I will let you analyze the code and it should be clear. Note that we will still need to access the database for the details of the user level, as well as the account email and registration date -- because these bits of information are not stored in the PHP session!
+
+The last non-administrative page of the site is <a href="https://github.com/marcokstephen/internet-forum/blob/master/help.php" target="_blank"><b>help.php</b></a>. This is a fairly basic page, visible to guests and members, accessible through the "Help" link of the navigation bar. My "Help" page displays user levels, HTML formatting tips (for users!), and the current member list, but you can make your help page display whatever you like. As such, I won't mention much more about this page -- it's not a necessity. If you look at it to see the way that I've implemented my information (such as user level list and member list), you'll see that it is just some basic queries, with some while loops used to display the data (just like you have already seen several times in this tutorial).
+<h2>Administration and Moderation</h2>
+The last category of pages in this tutorial relate to administrative functions that you will need for your site. My implementation of these will be pretty barebones, because they are mostly for convenience and regular users will not be encountering these pages anyways. Keep in mind that all of these tasks you can accomplish by accessing the database, but these upcoming functions will allow you a much more user friendly interface, as well as letting other users (administrators or moderators) modify the forum without having complete database access.
+
+The first page that I will present is <a href="https://github.com/marcokstephen/internet-forum/blob/master/delete-msg.php" target="_blank"><b>delete-msg.php</b></a>. When I was discussing posts.php, I mentioned that we would create buttons next to each post (only visible to moderators or administrators) that would allow the easy deletion of the post if required.
+
+We start the function by checking to see if the user has sufficient permissions to complete the task. In the case of my forum, they must be both signed in, and have a user level greater than 2. (Keep in mind that level 3 represents a moderator on my forum.) The actual process of deleting the message is quite simple -- I have decided not to actually "delete" the post, but rather to overwrite it with a message indicating its deletion, as I believe this gives a cleaner look. For example, my delete function overwrites posts with <i>[This message has been deleted at the request of a moderator or administrator]</i>. We accomplish this with -- you guessed it -- an SQL query:
+
+[code language="php"]
+$sql = "UPDATE posts SET post_content = '[This message has been deleted
+        at the request of a moderator or administrator]'
+        WHERE post_id = '" . mysql_real_escape_string($_GET['pid']) . "'";
+[/code]
+
+Notice how we are fetching 'pid' from the URL, which we appended to the URL on the "Delete Message" function found next to every post (see posts.php for more info if you don't remember this). If the deletion is successful, we return a confirmation message.
+
+The next administrative tool is <a href="https://github.com/marcokstephen/internet-forum/blob/master/delete-topic.php" target="_blank"><b>delete-topic.php</b></a>. This process is almost identical to delete-msg.php. We get the topic ID from the URL, search for the topic ID in the database, and use <b>DELETE FROM</b> to delete the topic from the table. In this case it would look "unclean" to use a placeholder message, so we just straight-up delete the topic. (Assuming the person using the commands is a high enough user level, of course!!) Once the topic is deleted, a confirmation is displayed.
+
+Keep in mind that these previous administrative functions have been available to both administrators and moderators, but the following functions will only be available to administrators (unless you choose otherwise)! The first of these is <a href="https://github.com/marcokstephen/internet-forum/blob/master/edit-users.php" target="_blank"><b>edit-users.php</b></a>. This page allows you to manually change a user's level without needing to access the database, such as if you want to promote or ban a user.
+
+We begin by ensuring that the user is an administrator. Next, we check to see if there is a current POST request that is pending. If there is not, we display the form to change the user. If there is, we process the form.
+
+[caption id="attachment_119" align="aligncenter" width="665"]<a href="http://www.stephenmarcok.com/blog/wp-content/uploads/2014/03/editusers.png"><img class="size-full wp-image-119" alt="The form for editing a user" src="http://www.stephenmarcok.com/blog/wp-content/uploads/2014/03/editusers.png" width="665" height="194" /></a> The form for editing a user[/caption]
+
+We search the database according to the username specified in the form. Keep in mind that usernames are unique, so this will only ever affect one user! When we find the user, we change their user level by using the SQL <b>UPDATE</b> query, as follows:
+
+[code language="php"]
+$sql = "UPDATE users SET user_level =
+       '" . mysql_real_escape_string($_POST['userLevel']) . "'
+       WHERE user_name =
+       '" . mysql_real_escape_string($_POST['userName']) . "'";
+[/code]
+
+This will change their user level, but you should note that this page isn't completely polished up yet! If the username is mistyped, the page will still produce a confirmation message. But what happens if there is no user that corresponds to that username? Nothing happens. The query searches for a user, but no user is found, so it modifies no users. This "bug" can be fixed quite easily, by implementing a check for whether the number of rows returned is equal to 0, as we have seen in many previous pages. <i>Note: This function is restricted from moderators because otherwise, they could set themselves to be administrators! However, you could program an exception for this quite easily if you wished.</i>
+
+This concludes the extent with which we can edit users from outside the database. The last few pages all relate to editing the boards themselves.
+The first of these is <a href="https://github.com/marcokstephen/internet-forum/blob/master/add-board.php" target="_blank"><b>add-board.php</b></a>.
+
+This page has two functions. It will either process a form, or display multiple forms if there is no form to process. We use this same page to display the forms for <b>add-board.php</b>, <a href="https://github.com/marcokstephen/internet-forum/blob/master/edit-board.php" target="_blank"><b>edit-board.php</b></a>, and <a href="https://github.com/marcokstephen/internet-forum/blob/master/delete-board.php" target="_blank"><b>delete-board.php</b></a>. You might find this unfavourable, but it all comes down to personal preference and you are welcome to change it if you wish. The different forms do almost exactly what they are named. <b>Keep in mind that when you are filling out a specific form, you must fill out all fields in the form, even if you are only changing one detail!</b> You do not need to fill out the details in all three forms, just the form that you are trying to use. This is because the SQL query for each form will overwrite the current SQL entry with the new information specified in your form, regardless of whether or not you actually entered information! For example, if you leave the field for board_name blank, it will overwrite the board_name as "" (nothing)!
+
+Even though add-board.php displays three forms, it processes only one: the field for adding a board. When it processes the form, it uses <b>INSERT INTO</b> to add the board into the 'boards' table. For the most part, these pages are all self-explanatory and you have seen the similar implementations several times already in other contexts.
+<h1>Appendix</h1>
+The following information will help you if you want to change up user levels:
+
+The code assumes (is coded such that) an administrator account will have a level &gt; 3. If you want the administrator cutoff to be higher than 4, you must edit properties in the following files:
+<ul>
+	<li>add-board.php</li>
+	<li>delete-board.php</li>
+	<li>edit-board.php</li>
+	<li>edit-users.php</li>
+	<li>header.php</li>
+	<li>index.php</li>
+</ul>
+The code assumes (is coded such that) a moderator account will have a level &gt; 2. If you want the moderator cutoff to be higher than 3, you must edit properties in the following files:
+<ul>
+	<li>delete-msg.php</li>
+	<li>delete-topic.php</li>
+	<li>posts.php</li>
+</ul>
+Additionally, the code uses a header/footer system, but some pages use header2.php because this file does not include a navigation bar. These pages are:
+<ul>
+	<li>confirm-login.php</li>
+	<li>confirm-registration.php</li>
+	<li>login.php</li>
+	<li>register.php</li>
+</ul>
+<h1>Conclusion</h1>
+Well...that pretty much wraps up my tutorial. If you have questions, suggestions, or concerns, feel free to post a comment below and I will try to help you out. Hopefully you found this tutorial to be helpful, and have learned quite a bit from the sample (yet fully functional) code that I provided. Happy coding.
+
+- Stephen Marcok
+Computer Science, University of Waterloo
